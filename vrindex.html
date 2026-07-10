@@ -1,0 +1,309 @@
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR English Sentence Builder Game</title>
+    <style>
+        /* UI โทนสีพาสเทลสดใส เหมาะกับเด็กๆ */
+        body {
+            font-family: 'Kanit', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #e0f2fe 0%, #fef08a 100%);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .game-container {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 550px;
+            text-align: center;
+            border: 4px solid #bae6fd;
+        }
+        h1 { color: #0284c7; margin-bottom: 20px; font-size: 24px; }
+        .screen { display: none; }
+        .active { display: block; }
+        
+        /* สไตล์ปุ่มและกล่องคำศัพท์ */
+        input[type="text"] {
+            width: 80%;
+            padding: 12px;
+            border: 2px solid #cbd5e1;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        button {
+            background-color: #38bdf8;
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s, background-color 0.2s;
+            box-shadow: 0 4px 6px rgba(56, 189, 248, 0.2);
+        }
+        button:hover { background-color: #0ea5e9; transform: scale(1.03); }
+        button:active { transform: scale(0.98); }
+        
+        /* โซนการลากวางคำศัพท์ */
+        .zone-title { font-weight: bold; color: #64748b; margin: 15px 0 5px 0; font-size: 14px; text-align: left;}
+        .word-pool, .drop-zone {
+            background: #f8fafc;
+            border: 2px dashed #cbd5e1;
+            padding: 15px;
+            min-height: 60px;
+            border-radius: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .drop-zone { background: #f0fdf4; border-color: #4ade80; }
+        
+        .word-block {
+            background: #fef08a;
+            border: 2px solid #facc15;
+            padding: 10px 18px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #854d0e;
+            user-select: none;
+            box-shadow: 0 4px 0 #facc15;
+            transition: transform 0.1s;
+        }
+        .word-block:active { transform: translateY(4px); box-shadow: none; }
+        
+        /* อัปเดตสถานะคะแนนและคำติชม */
+        .status-bar { display: flex; justify-content: space-between; margin-bottom: 15px; font-weight: bold; color: #475569; }
+        #feedback { font-size: 18px; font-weight: bold; margin: 15px 0; min-height: 25px; }
+        
+        /* ตารางบอร์ดคะแนน */
+        .leaderboard-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .leaderboard-table th, .leaderboard-table td {
+            padding: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .leaderboard-table th { background-color: #fef08a; color: #854d0e; border-radius: 8px 8px 0 0; }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div id="start-screen" class="screen active">
+        <h1>🎮 ยินดีต้อนรับสู่เกมเรียงประโยค VR!</h1>
+        <p style="color: #64748b;">ฝึกแต่งประโยค Subject + Verb to be (is, am, are)</p>
+        <input type="text" id="player-name" placeholder="พิมพ์ชื่อนักเรียนตรงนี้เลย..." maxlength="15">
+        <br>
+        <button onclick="startGame()">เริ่มเล่นเกมเลย 🚀</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="status-bar">
+            <span id="progress-text">ข้อที่: 1/10</span>
+            <span id="score-text">คะแนน: 0</span>
+        </div>
+        
+        <div class="zone-title">👇 คำศัพท์ที่กำหนดให้ (คลิกเพื่อเลือกเรียง)</div>
+        <div id="word-pool" class="word-pool"></div>
+        
+        <div class="zone-title">📥 ประโยคของคุณ (คลิกเพื่อเอาคำออก)</div>
+        <div id="drop-zone" class="drop-zone"></div>
+        
+        <div id="feedback"></div>
+        <button id="action-btn" onclick="checkAnswer()">ตรวจคำตอบ ✔️</button>
+    </div>
+
+    <div id="end-screen" class="screen">
+        <h1>🏆 จบเกมแล้วจ้า! เก่งมากๆ 🏆</h1>
+        <h2 id="final-score" style="color: #16a34a;">คุณได้คะแนน: 0 คะแนน</h2>
+        
+        <h3 style="margin-top: 25px; color: #0284c7;">📊 อันดับนักเรียนคนเก่ง (Top 5)</h3>
+        <table class="leaderboard-table">
+            <thead>
+                <tr>
+                    <th>อันดับ</th>
+                    <th>ชื่อนักเรียน</th>
+                    <th>คะแนนที่ทำได้</th>
+                </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+                </tbody>
+        </table>
+        <br>
+        <button onclick="restartGame()">เล่นใหม่อีกครั้ง 🔄</button>
+    </div>
+</div>
+
+<script>
+    // ฐานข้อมูลโจทย์เรียงประโยค 10 ข้อ
+    const questions = [
+        { correct: ["I", "am", "a", "student."], scrambled: ["student.", "am", "I", "a"] },
+        { correct: ["She", "is", "a", "doctor."], scrambled: ["is", "doctor.", "a", "She"] },
+        { correct: ["They", "are", "happy."], scrambled: ["happy.", "They", "are"] },
+        { correct: ["It", "is", "a", "cat."], scrambled: ["a", "cat.", "It", "is"] },
+        { correct: ["We", "are", "in", "the", "classroom."], scrambled: ["classroom.", "are", "the", "We", "in"] },
+        { correct: ["The", "dog", "is", "very", "big."], scrambled: ["very", "dog", "big.", "The", "is"] },
+        { correct: ["You", "are", "a", "good", "boy."], scrambled: ["good", "boy.", "are", "a", "You"] },
+        { correct: ["He", "is", "tall", "and", "thin."], scrambled: ["thin.", "and", "is", "He", "tall"] },
+        { correct: ["Tom", "and", "Lisa", "are", "friends."], scrambled: ["Lisa", "are", "friends.", "Tom", "and"] },
+        { correct: ["My", "father", "is", "a", "teacher."], scrambled: ["teacher.", "father", "is", "My", "a"] }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let playerName = "";
+
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+    }
+
+    function startGame() {
+        const inputName = document.getElementById('player-name').value.trim();
+        playerName = inputName ? inputName : "นักเรียนนิรนาม";
+        currentQuestionIndex = 0;
+        score = 0;
+        showScreen('game-screen');
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        document.getElementById('feedback').innerHTML = "";
+        document.getElementById('feedback').style.color = "black";
+        document.getElementById('progress-text').innerText = `ข้อที่: ${currentQuestionIndex + 1}/${questions.length}`;
+        document.getElementById('score-text').innerText = `คะแนน: ${score}`;
+        
+        const actionBtn = document.getElementById('action-btn');
+        actionBtn.innerText = "ตรวจคำตอบ ✔️";
+        actionBtn.onclick = checkAnswer;
+        actionBtn.style.display = "inline-block";
+
+        const pool = document.getElementById('word-pool');
+        const dropZone = document.getElementById('drop-zone');
+        pool.innerHTML = "";
+        dropZone.innerHTML = "";
+
+        // ดึงคำศัพท์ที่สลับมาสร้างเป็นบล็อกคำศัพท์ (จำลองการแตะนิ้วลากวาง)
+        questions[currentQuestionIndex].scrambled.forEach(word => {
+            createWordBlock(word, pool);
+        });
+    }
+
+    function createWordBlock(word, container) {
+        const block = document.createElement('div');
+        block.className = 'word-block';
+        block.innerText = word;
+        block.onclick = function() {
+            if (container.id === 'word-pool') {
+                document.getElementById('drop-zone').appendChild(block);
+            } else {
+                document.getElementById('word-pool').appendChild(block);
+            }
+        };
+        container.appendChild(block);
+    }
+
+    function checkAnswer() {
+        const placedBlocks = document.getElementById('drop-zone').querySelectorAll('.word-block');
+        const currentQ = questions[currentQuestionIndex];
+
+        if (placedBlocks.length !== currentQ.correct.length) {
+            const fb = document.getElementById('feedback');
+            fb.innerText = "ยังย้ายกล่องคำศัพท์ไม่ครบเลยจ้า! ⚠️";
+            fb.style.color = "#ef4444";
+            return;
+        }
+
+        let isCorrect = true;
+        placedBlocks.forEach((block, index) => {
+            if (block.innerText !== currentQ.correct[index]) {
+                isCorrect = false;
+            }
+        });
+
+        const fb = document.getElementById('feedback');
+        const actionBtn = document.getElementById('action-btn');
+
+        if (isCorrect) {
+            score += 10;
+            fb.innerText = "ถูกต้องแล้ว! เก่งมาก ✨🎉";
+            fb.style.color = "#22c55e";
+        } else {
+            fb.innerHTML = `ยังไม่ถูกน้า ลองดูประโยคนี้สิ:<br><span style="color:#eab308">${currentQ.correct.join(" ")}</span>`;
+            fb.style.color = "#ef4444";
+        }
+
+        // เปลี่ยนปุ่มตรวจคำตอบเป็นปุ่มไปต่อ
+        actionBtn.innerText = (currentQuestionIndex < questions.length - 1) ? "ลุยข้อต่อไป ➡️" : "ดูผลคะแนน 🏆";
+        actionBtn.onclick = nextQuestion;
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        showScreen('end-screen');
+        document.getElementById('final-score').innerText = `คุณทำไปได้: ${score} คะแนน!`;
+        saveAndLoadLeaderboard();
+    }
+
+    function saveAndLoadLeaderboard() {
+        // ดึงสถิติจาก LocalStorage ความจำเครื่องคอมพิวเตอร์/บราวเซอร์
+        let leaderboard = JSON.parse(localStorage.getItem('vr_english_leaderboard')) || [];
+        
+        // เพิ่มข้อมูลปัจจุบัน
+        leaderboard.push({ name: playerName, score: score });
+        
+        // เรียงคะแนนจากมากไปน้อย
+        leaderboard.sort((a, b) => b.score - a.score);
+        
+        // ตัดข้อมูลเหลือแค่ Top 5
+        leaderboard = leaderboard.slice(0, 5);
+        
+        // เซฟลงเครื่องอีกรอบ
+        localStorage.setItem('vr_english_leaderboard', JSON.stringify(leaderboard));
+
+        // เอาข้อมูลไปโชว์ในตาราง UI
+        const tbody = document.getElementById('leaderboard-body');
+        tbody.innerHTML = "";
+        leaderboard.forEach((player, index) => {
+            let medal = index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : "⭐";
+            let row = `<tr>
+                <td>${medal} ${index + 1}</td>
+                <td>${player.name}</td>
+                <td style="font-weight:bold; color:#0284c7;">${player.score}</td>
+            </tr>`;
+            tbody.innerHTML += row;
+        });
+    }
+
+    function restartGame() {
+        document.getElementById('player-name').value = "";
+        showScreen('start-screen');
+    }
+</script>
+
+</body>
+</html>
